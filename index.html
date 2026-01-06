@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ApkPro Global</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .app-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .app-card:hover { transform: scale(1.05); }
+        .loader { border-top-color: #10B981; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-[#f0f2f5] min-h-screen">
+
+    <nav class="bg-white shadow-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="showHome()">
+                <div class="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <span class="text-white font-bold text-xl">P</span>
+                </div>
+                <span class="text-xl font-extrabold text-gray-800 hidden sm:block">PlayStore <span class="text-green-600">Lite</span></span>
+            </div>
+
+            <div class="flex-1 max-w-md">
+                <input type="text" id="searchBar" oninput="handleSearch()" placeholder="Cari aplikasi global..." class="w-full bg-gray-100 border-none rounded-full px-5 py-2 focus:ring-2 focus:ring-green-500 outline-none transition-all">
+            </div>
+
+            <div id="nav-actions" class="flex items-center gap-3">
+                <button onclick="openModal('auth-modal')" class="bg-green-600 text-white px-5 py-2 rounded-full font-semibold text-sm">Masuk</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto p-6">
+        <div id="home-view">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Koleksi Aplikasi Global</h2>
+                <span id="user-welcome" class="text-sm text-gray-500 font-medium"></span>
+            </div>
+            <div id="app-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 text-center">
+                </div>
+        </div>
+
+        <div id="detail-view" class="hidden">
+            <button onclick="showHome()" class="mb-6 text-green-600 font-bold flex items-center gap-2">← Kembali ke Beranda</button>
+            <div id="detail-body"></div>
+        </div>
+    </main>
+
+    <div id="upload-modal" class="fixed inset-0 bg-black/60 hidden z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <h2 class="text-2xl font-bold mb-6 text-center">Upload APK Baru</h2>
+            <div class="space-y-4">
+                <input type="text" id="up-name" placeholder="Nama Aplikasi" class="w-full border p-4 rounded-2xl outline-none focus:ring-2 focus:ring-green-500">
+                <textarea id="up-desc" placeholder="Deskripsi Singkat" class="w-full border p-4 rounded-2xl h-24 outline-none focus:ring-2 focus:ring-green-500"></textarea>
+                
+                <div class="p-4 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50">
+                    <label class="text-xs font-bold text-gray-400 uppercase block mb-2 text-center">Pilih File APK Dari HP</label>
+                    <input type="file" id="up-file" accept=".apk" class="w-full text-sm">
+                </div>
+
+                <input type="text" id="up-icon" placeholder="URL Ikon (Contoh: https://...png)" class="w-full border p-4 rounded-2xl outline-none focus:ring-2 focus:ring-green-500 text-sm">
+
+                <div id="prog-container" class="hidden space-y-2">
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div id="prog-bar" class="bg-green-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <p id="prog-status" class="text-[10px] text-center text-green-600 font-bold uppercase">Sedang Mengirim: 0%</p>
+                </div>
+
+                <button onclick="uploadAppGlobal()" id="btnPublish" class="w-full bg-green-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg hover:bg-green-700 disabled:bg-gray-400">Publikasikan Aplikasi</button>
+                <button onclick="closeModal('upload-modal')" class="w-full text-gray-400 text-sm">Batalkan</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="auth-modal" class="fixed inset-0 bg-black/60 hidden z-[100] flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[2rem] p-8 shadow-2xl text-center">
+            <h2 class="text-2xl font-bold mb-6">Masuk Akun</h2>
+            <input type="text" id="user-name" placeholder="Nama Anda" class="w-full border p-3 rounded-xl mb-3 text-center outline-none focus:ring-2 focus:ring-green-500">
+            <button onclick="handleLogin()" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold shadow-lg">Lanjutkan</button>
+            <button onclick="closeModal('auth-modal')" class="w-full mt-4 text-gray-400">Tutup</button>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
+
+    <script>
+        // --- CONFIG FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "ISI_PUNYAMU",
+            authDomain: "ISI_PUNYAMU",
+            projectId: "ISI_PUNYAMU",
+            storageBucket: "ISI_PUNYAMU",
+            messagingSenderId: "ISI_PUNYAMU",
+            appId: "ISI_PUNYAMU"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        let apps = [];
+        let currentUser = JSON.parse(localStorage.getItem('sessionUser')) || null;
+
+        // Ambil Data Secara Global
+        function loadGlobalApps() {
+            db.collection("apps").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+                apps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderApps(apps);
+            });
+        }
+
+        function renderApps(data) {
+            const grid = document.getElementById('app-grid');
+            if(data.length === 0) {
+                grid.innerHTML = `<p class="col-span-full py-20 text-gray-400">Belum ada aplikasi global...</p>`;
+                return;
+            }
+            grid.innerHTML = data.map(app => `
+                <div onclick="showDetail('${app.id}')" class="app-card bg-white p-4 rounded-[2rem] shadow-sm border border-gray-100 cursor-pointer flex flex-col items-center">
+                    <img src="${app.icon}" class="w-20 h-20 rounded-2xl mb-3 shadow-md object-cover" onerror="this.src='https://via.placeholder.com/100?text=APK'">
+                    <h3 class="font-bold text-gray-800 text-sm truncate w-full">${app.name}</h3>
+                    <p class="text-[10px] text-green-600 font-bold uppercase mt-1">✓ Global</p>
+                </div>
+            `).join('');
+        }
+
+        // Fungsi Upload APK (Anti-Macet)
+        async function uploadAppGlobal() {
+            const name = document.getElementById('up-name').value;
+            const fileInput = document.getElementById('up-file');
+            const file = fileInput.files[0];
+            const icon = document.getElementById('up-icon').value || 'https://via.placeholder.com/150';
+
+            if(!name || !file) return alert("Pilih file APK dan isi nama dulu!");
+
+            const btn = document.getElementById('btnPublish');
+            const progCont = document.getElementById('prog-container');
+            const progBar = document.getElementById('prog-bar');
+            const progStatus = document.getElementById('prog-status');
+
+            btn.disabled = true;
+            progCont.classList.remove('hidden');
+
+            try {
+                const storageRef = storage.ref('apks/' + Date.now() + "_" + file.name);
+                const uploadTask = storageRef.put(file);
+
+                uploadTask.on('state_changed', 
+                    (snap) => {
+                        const percent = (snap.bytesTransferred / snap.totalBytes) * 100;
+                        progBar.style.width = percent + '%';
+                        progStatus.innerText = "Mengunggah: " + Math.round(percent) + "%";
+                    }, 
+                    (err) => { alert("Gagal! Cek koneksi."); btn.disabled = false; },
+                    async () => {
+                        const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
+                        await db.collection("apps").add({
+                            name: name,
+                            desc: document.getElementById('up-desc').value,
+                            icon: icon,
+                            link: downloadURL,
+                            dev: currentUser.name,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        alert("Selesai! Aplikasi Anda sudah Online.");
+                        location.reload();
+                    }
+                );
+            } catch (e) { btn.disabled = false; }
+        }
+
+        function showDetail(id) {
+            const app = apps.find(a => a.id === id);
+            document.getElementById('home-view').classList.add('hidden');
+            document.getElementById('detail-view').classList.remove('hidden');
+            
+            document.getElementById('detail-body').innerHTML = `
+                <div class="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100">
+                    <div class="flex flex-col md:flex-row gap-8 items-center text-center md:text-left">
+                        <img src="${app.icon}" class="w-40 h-40 rounded-[2.5rem] shadow-xl object-cover">
+                        <div class="flex-1">
+                            <h1 class="text-4xl font-black text-gray-900">${app.name}</h1>
+                            <p class="text-green-600 font-bold text-lg">Developer: ${app.dev}</p>
+                            <button onclick="window.open('${app.link}', '_blank')" class="w-full md:w-auto mt-8 bg-green-600 text-white px-12 py-4 rounded-2xl font-bold text-xl shadow-lg hover:bg-green-700 transition-all">
+                                Download APK (Global)
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-12 pt-8 border-t border-gray-100">
+                        <h3 class="text-xl font-bold mb-4">Deskripsi</h3>
+                        <p class="text-gray-600 leading-relaxed">${app.desc || 'Tidak ada deskripsi.'}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // System
+        function handleLogin() {
+            const name = document.getElementById('user-name').value;
+            if(name) {
+                currentUser = { name: name };
+                localStorage.setItem('sessionUser', JSON.stringify(currentUser));
+                location.reload();
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('sessionUser');
+            location.reload();
+        }
+
+        function handleSearch() {
+            const q = document.getElementById('searchBar').value.toLowerCase();
+            renderApps(apps.filter(a => a.name.toLowerCase().includes(q)));
+        }
+
+        function showHome() {
+            document.getElementById('home-view').classList.remove('hidden');
+            document.getElementById('detail-view').classList.add('hidden');
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        window.onload = () => {
+            if(currentUser) {
+                document.getElementById('nav-actions').innerHTML = `
+                    <button onclick="openModal('upload-modal')" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md">+ Upload Global</button>
+                    <button onclick="handleLogout()" class="text-red-500 font-bold text-xs ml-2">Keluar</button>
+                `;
+                document.getElementById('user-welcome').innerText = `Halo, ${currentUser.name}!`;
+            }
+            loadGlobalApps();
+        };
+    </script>
+</body>
+</html>
